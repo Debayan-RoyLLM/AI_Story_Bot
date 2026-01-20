@@ -90,26 +90,42 @@ get_bowling_team_total = text("""
 #-----------------------------------------------------------------------#
 #-----------------------------------------------------------------------#
 
+
 get_current_run_ball_player1  = text("""
-                select ball, score__runs from history2.fixtures__balls 
-                where fixture_id = :fixture_id and batsman_id=:batsman_id
-                """)
+    SELECT
+        COUNT(*) AS balls_faced,
+        COALESCE(SUM(score__runs), 0) AS total_runs
+    FROM history2.fixtures__balls
+    WHERE fixture_id = :fixture_id
+      AND batsman_id = :batsman_id
+      AND ball <= :current_ball
+""")
 
 #-----------------------------------------------------------------------#
 #-----------------------------------------------------------------------#
 
 get_current_run_ball_player2  = text("""
-                select ball, score__runs from history2.fixtures__balls 
-                where fixture_id = :fixture_id and batsman_id=:batsman_id
-                """)
+    SELECT
+        COUNT(*) AS balls_faced,
+        COALESCE(SUM(score__runs), 0) AS total_runs
+    FROM history2.fixtures__balls
+    WHERE fixture_id = :fixture_id
+      AND batsman_id = :batsman_id
+      AND ball <= :current_ball
+""")
+
 
 #-----------------------------------------------------------------------#
 #-----------------------------------------------------------------------#
 
 bowler_wickets = text("""
-                SELECT score__out
-                FROM history2.fixtures__balls
-                WHERE fixture_id = :fixture_id AND bowler_id = :bowler_id
+SELECT COUNT(*) AS wickets
+FROM history2.fixtures__balls
+WHERE fixture_id = :fixture_id
+  AND bowler_id = :bowler_id
+  AND score__out = 1
+  AND ball < :current_ball
+
                 """)
 
 #-----------------------------------------------------------------------#
@@ -120,5 +136,18 @@ last_two_balls = text("""
                 FROM history2.fixtures__balls
                 WHERE fixture_id = :fixture_id
                 AND team_id = :team_id
+            AND ball < :current_ball
                 ORDER BY ball DESC
                 """)
+
+#-----------------------------------------------------------------------#
+#-----------------------------------------------------------------------#
+
+team_wicket = text("""
+            SELECT COUNT(*) AS wickets
+            FROM history2.fixtures__balls
+            WHERE fixture_id = :fixture_id
+              AND team_id = :team_id
+              AND score__out = 1
+              AND ball < :current_ball
+        """)

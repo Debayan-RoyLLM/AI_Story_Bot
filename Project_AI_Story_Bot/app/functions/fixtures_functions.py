@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from app.Queries.fixture_queries import (
     Fixture_query, Info_query, Player2_name
     , Second_Team, Batting_Team_id, get_current_run_ball, get_bowling_team_total,
-    get_bowling_team_id, get_current_run_ball_player1, bowler_wickets, last_two_balls)
+    get_bowling_team_id, get_current_run_ball_player1, bowler_wickets, last_two_balls,
+    get_current_run_ball_player2, team_wicket)
 
 def get_latest_fixture(
     db: Session,
@@ -113,46 +114,94 @@ def bowling_team_total(db: Session, fixture_id: int, bowling_team_id: int):
     ).fetchone()
     return result.score
 
-def get_current_player_run(db: Session, fixture_id: int, batsman_id: int):
-    rows = db.execute(
+
+def get_current_player_run(db: Session, fixture_id: int, batsman_id: int, current_ball: float):
+    row = db.execute(
         get_current_run_ball_player1,
         {
             "fixture_id": fixture_id,
             "batsman_id": batsman_id,
+            "current_ball": current_ball
         }
-    ).fetchall()
+    ).fetchone()
 
-    balls_faced = len(rows)
-    total_runs = sum(row[1] for row in rows)
-    strike_rate = total_runs/balls_faced
+    runs = row.total_runs or 0
+    balls = row.balls_faced or 0
+    strike_rate = round((runs / balls) * 100, 2) if balls > 0 else 0.0
 
-    return total_runs, balls_faced, strike_rate
+    return runs, balls, strike_rate
 
-def get_current_player2_run(db: Session, fixture_id: int, batsman_id: int):
-    rows = db.execute(
+def get_current_player2_run(db: Session, fixture_id: int, batsman_id: int, current_ball: float):
+    row = db.execute(
         get_current_run_ball_player1,
         {
             "fixture_id": fixture_id,
-            "batsman_id": batsman_id
+            "batsman_id": batsman_id,
+            "current_ball": current_ball
         }
-    ).fetchall()
+    ).fetchone()
 
-    balls_faced = len(rows)
-    total_runs = sum(row[1] for row in rows)
+    runs = row.total_runs or 0
+    balls = row.balls_faced or 0
 
-    return total_runs, balls_faced
 
-def get_bowler_wickets(db: Session, fixture_id: int, bowler_id: int):
+    return runs, balls
+
+def get_bowler_wickets(
+    db: Session,
+    fixture_id: int,
+    bowler_id: int,
+    current_ball: float
+):
     result = db.execute(
         bowler_wickets,
         {
             "fixture_id": fixture_id,
-            "bowler_id": bowler_id
+            "bowler_id": bowler_id,
+            "current_ball": current_ball
         }
     ).fetchone()
 
-    return result.score__out
+    return result.wickets if result else 0
 
+def get_team_wickets(db, fixture_id, batting_team_id, current_ball):
+    result = db.execute(
+        team_wicket,
+        {
+            "fixture_id": fixture_id,
+            "team_id": batting_team_id,
+            "current_ball": current_ball
+        }
+    ).fetchone()
+
+    return result.wickets if result else 0
+
+def get_last_two_balls(db: Session, fixture_id: int, team_id: int, current_ball: float):
+    rows = db.execute(
+        last_two_balls,
+        {
+            "fixture_id": fixture_id,
+            "team_id": team_id,
+            "current_ball": current_ball
+        }
+    ).fetchall()
+
+    second_last_run = 0
+    last_run = 0
+
+    if rows:
+        if len(rows) == 1:
+            last_run = rows[0].score__runs
+        else:
+            last_run = rows[0].score__runs
+            second_last_run = rows[1].score__runs
+
+    return {
+        "second_last_ball": second_last_run,
+        "last_ball": last_run
+    }
+
+'''
 def get_last_two_balls(db: Session, fixture_id: int, team_id: int):
     rows = db.execute(
         last_two_balls,
@@ -180,3 +229,4 @@ def get_last_two_balls(db: Session, fixture_id: int, team_id: int):
         "second_last_ball": second_last_run,
         "last_ball": last_run
     }
+'''
