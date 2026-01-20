@@ -55,30 +55,70 @@ Second_Team= text("""
 #----------------------------------------------------------------------#
 #----------------------------------------------------------------------#
 
+Batting_Team_id = text ("""
+        select id,score,rate, team_id, ball from history2.fixtures__batting 
+        where player_id = :player_id and fixture_id= :fixture_id            
+        """)
 
 
-
-'''
 #----------------------------------------------------------------------#
 #----------------------------------------------------------------------#
 
 get_current_run_ball  = text("""
-                select ball, score__runs from history2.fixtire__balls 
-                where fixture_id = :fixture_id and team_id=:batting_team_id
+                select ball, score__runs from history2.fixtures__balls 
+                where fixture_id = :fixture_id and team_id=:team_id
                  """)
 
 #-----------------------------------------------------------------------#
 #-----------------------------------------------------------------------#
 
-def get_bowling_team_ids(db, fixture_id: int, player_ids: list[int]):
-    query = text("""
-        SELECT player_id, team_id
-        FROM history2.fixtures__bowling
-        WHERE fixture_id = :fixture_id
-          AND player_id = ANY(:player_ids)
-    """)
-    return db.execute(
-        query,
-        {"fixture_id": fixture_id, "player_ids": player_ids}
-    ).fetchall()
-'''
+get_bowling_team_id = text ("""
+                select id, overs, runs, wickets, team_id 
+                from history2.fixtures__bowling where fixture_id = :fixture_id 
+                and player_id= :player_id
+                """)
+
+
+#-----------------------------------------------------------------------#
+#-----------------------------------------------------------------------#
+
+get_bowling_team_total = text("""
+                select score from history2.fixtures__runs 
+                where team_id =:team_id and fixture_id=:fixture_id
+                """)
+
+#-----------------------------------------------------------------------#
+#-----------------------------------------------------------------------#
+
+get_current_run_ball_player1  = text("""
+                select ball, score__runs from history2.fixtures__balls 
+                where fixture_id = :fixture_id and batsman_id=:batsman_id
+                """)
+
+#-----------------------------------------------------------------------#
+#-----------------------------------------------------------------------#
+
+get_current_run_ball_player2  = text("""
+                select ball, score__runs from history2.fixtures__balls 
+                where fixture_id = :fixture_id and batsman_id=:batsman_id
+                """)
+
+#-----------------------------------------------------------------------#
+#-----------------------------------------------------------------------#
+
+bowler_wickets = text("""
+                SELECT score__out
+                FROM history2.fixtures__balls
+                WHERE fixture_id = :fixture_id AND bowler_id = :bowler_id
+                """)
+
+#-----------------------------------------------------------------------#
+#-----------------------------------------------------------------------#
+
+last_two_balls = text("""
+                SELECT TOP 2 score__runs, ball
+                FROM history2.fixtures__balls
+                WHERE fixture_id = :fixture_id
+                AND team_id = :team_id
+                ORDER BY ball DESC
+                """)

@@ -3,29 +3,86 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.functions.fixtures_functions import (
-    get_latest_fixture, get_info, get_player2_name,second_team_name)
+    get_latest_fixture, get_info, get_player2_name,second_team_name
+    ,get_batting_team_id, get_current_run,bowling_team_total, bowling_team_id,
+    get_current_player_run, get_current_player2_run, get_bowler_wickets, get_last_two_balls)
 
 
 router = APIRouter(prefix="/fixtures", tags = ["Fixtures"])
 
 @router.get("/latest")
-def latest_fixture(country_id:int, league_id: int, db: Session = Depends(get_db)):
+def latest_fixture(country_id: int, league_id: int, db: Session = Depends(get_db)):
     fixture_id = get_latest_fixture(db, country_id, league_id)
 
     if not fixture_id:
         return {"message": "No fixture found"}
-    
+
     over = 0.1
     data = get_info(db, fixture_id, over)
+
     non_striker_id = data[0]["non_striker_id"]
+    batsman_id = data[0]["batsman_id"]
+
     player2_name = get_player2_name(db, non_striker_id)
     second_team = second_team_name(db, fixture_id, over)
+    bowler_id = second_team[0]["bowler_id"]
+    batting_team_id = get_batting_team_id(db, fixture_id, batsman_id)
+    batting_team_run = get_current_run(db, fixture_id, batting_team_id)
+    _bowling_team_id = bowling_team_id(db, fixture_id, bowler_id)
+    Target_Score = bowling_team_total(db, fixture_id, _bowling_team_id)
+    live_score = batting_team_run[0].score__runs
+
+    batsman_runs,batsman_balls, strike_rate  = get_current_player_run(db, fixture_id, batsman_id)
+    batsman2_runs,batsman2_balls  = get_current_player2_run(db, fixture_id, non_striker_id)
+    wickets_bowler = get_bowler_wickets(db, fixture_id, bowler_id)
+    bowler_wickets = 0
+    team_wicket = 0
+    if wickets_bowler == 1:
+        bowler_wickets= bowler_wickets+1
+        team_wicket = team_wicket+1
     
+    current_ball = second_team[0]["current_ball"]
+    over = int(current_ball)
+    balls_bowled = round((current_ball - over) * 10)
+    total_balls = over * 6 + balls_bowled
+    balls_remaining = (20 * 6) - total_balls
+    data0 = data[0]
+
+    batsman_name = data0["batsman"]
+    nonstriker_name = player2_name
+    team_name = data0["team_name"]
+    bowler_name = data0["bowler"]
+
+    runs_required = Target_Score - live_score
+    #balls_remaining = "yet to be determined"
+    batsman_sr = strike_rate
+    required_run_rate = round((runs_required/balls_remaining)*6,2)
+
+    nonstriker_runs = batsman2_runs
+    nonstriker_balls = batsman2_balls
+
+    current_run_rate = round(live_score / max(data0["ball"], 0.1), 2)
+
+    wickets_in_hand = 10 - team_wicket
+    last_two = get_last_two_balls(db, fixture_id, batting_team_id)
+
+    second_last_ball = last_two["second_last_ball"]
+    last_ball = last_two["last_ball"]
+
+    narrative = (
+    f"{batsman_name} and {nonstriker_name} are batting for {team_name} with "
+    f"{runs_required} runs required off {balls_remaining} balls.\n"
+    f"{batsman_name} is on {batsman_runs} off {batsman_balls} balls with a strike rate of {batsman_sr}, "
+    f"while {nonstriker_name} is on {nonstriker_runs} from {nonstriker_balls} balls.\n"
+    f"The bowler, {bowler_name}, has taken {bowler_wickets} wickets already in this match.\n"
+    f"The required run rate is {required_run_rate}, while the current run rate is {current_run_rate}.\n"
+    f"There are {wickets_in_hand} wickets in hand. The last two balls were {second_last_ball},{last_ball}."
+)
+
+
+    # response
     return {
-        "Fixture": fixture_id,
-        "data":data,
-        "Player2_name": player2_name,
-        "Second_Team": second_team
+        narrative
     }
 
 
